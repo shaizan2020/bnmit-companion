@@ -1,0 +1,7 @@
+# Ignore root level unnecessary folders and files
+.agents/
+graphify-out/
+__pycache__/
+cookies.txt
+.gemini/
+*.log

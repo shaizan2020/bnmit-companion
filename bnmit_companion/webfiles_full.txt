@@ -1,0 +1,203 @@
+﻿
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta name='robots' content='noindex, nofollow, noarchive' />
+    <meta charset="utf-8">
+    <!-- displaying the college name and logo from the database -->
+    <title>Welcome to B.N.M. INSTITUTE OF TECHNOLOGY</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="" name="keywords">
+    <meta content="" name="description">
+
+    <!-- Favicons -->
+
+    <link href="files/img/logo.png" rel="icon">
+    <!-- <link href="img/apple-touch-icon.png" rel="apple-touch-icon">-->
+
+    <!-- Google Fonts -->
+
+
+    <!-- UIKIT style files -->
+<link href="src/css/style.css" rel="stylesheet">
+<link href="src/css/uikit.min.css" rel="stylesheet">
+<script src="src/js/uikit.min.js"></script>
+    <script src="src/js/uikit-icons.min.js"></script>
+    <style type="text/css">
+        .customHead {
+            position: relative;
+            font-weight: bold;
+            shape-outside: border-box;
+            color: #016eb8;
+            top: 1px;
+            text-align: center;
+            font-size: 30px;
+        }
+
+        .txtalgn {
+            text-align: right;
+        }
+
+        .mystyle {
+            color: #333232;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .mystyle1 {
+            font-weight: bold;
+            color: #198466;
+        }
+    </style>
+
+
+</head>
+
+<body id="body">
+<div class="uk-container">
+    <div class="cn-box-layout">
+    <!--==========================
+    Header
+  ============================-->
+  <div class="cn-header">
+            <div class="uk-grid" uk-grid="">
+              <div class="uk-width-1-1@m uk-width-1-1@s uk-first-column">
+                <div class="cn-logo uk-flex uk-flex-middle">
+                    <div class="cn-logo-image">
+                       <img src="files/img/logo.png" alt="logo">
+                </div>
+                  <div class="cn-logo-text">
+                    <h2 class="uk-margin-remove-bottom uk-margin-small-left" uk-tooltip="title: B.N.M. INSTITUTE OF TECHNOLOGY; pos: right" title="" aria-expanded="false">
+                    B.N.M. INSTITUTE OF TECHNOLOGY</h2>
+                  </div>
+                  
+                </div>
+              </div>
+           
+            </div>
+          </div>
+   <div class="cn-breadscrum ">
+<div class="cn-cont">
+<h1 class="uk-text-center">Welcome to the BNMIT Student and Parent portal. </h1>
+<h3 class="uk-text-center uk-margin-remove-bottom uk-margin-small-top">This portal is for the exclusive use of BNMIT students and their parents to review academic performance</h3>
+  
+    <!-- #header -->
+
+    <!-- <section id="intro">
+
+        <div class="intro-content">
+        <h2 style="color: #081e5b; font-size: 22px;">Welcome to the  academics management system</h2>
+      <h3><span style="color:red ;">For use by authorized personnel only</span></h3>
+        </div>
+
+    </section> -->
+    <!-- #intro -->
+    <div class="uk-padding-small">
+<div class="uk-grid">
+<div class="uk-width-1-2@m ">
+        <div class="uk-card uk-card-default uk-animation-toggle cn-card uk-animation-slide-left" tabindex="2">
+    <div class="uk-card-header">
+        <div class="uk-grid-small uk-flex-middle" uk-grid>
+            <div class="uk-width-expand">
+                <h2 class="uk-card-title uk-margin-remove-bottom">FOR ODD TERM 2026</h2>
+              
+                  </div>
+        </div>
+    </div>
+
+  <div class="uk-card-footer ">
+  <div class="uk-clearfix">
+<div class="uk-float-left">
+<h3 class="uk-margin-remove-bottom uk-margin-small-top" style="margin-bottom:0px !important;">(Fees Payment to be done here)</h3>
+</div>
+<div class="uk-float-right">
+<a href="../parents/"  target="_blank" class="cn-press-button"><span
+                                            >Click Here</span></a>
+</div>
+        </div>
+  
+    </div>
+</div>
+</div>
+    <div class="uk-width-1-2@m ">
+        <div class="uk-card uk-card-default uk-animation-toggle cn-card uk-animation-slide-left" tabindex="2">
+    <div class="uk-card-header">
+        <div class="uk-grid-small uk-flex-middle" uk-grid>
+            <div class="uk-width-expand">
+                <h2 class="uk-card-title uk-margin-remove-bottom">FOR EVEN TERM 2026</h2>
+              
+                  </div>
+        </div>
+    </div>
+
+  <div class="uk-card-footer ">
+  <div class="uk-clearfix">
+<div class="uk-float-left">
+<!-- <h3 class="uk-margin-remove-bottom uk-margin-small-top" style="margin-bottom:0px !important;">(Fees Payment to be done here)</h3> -->
+</div>
+<div class="uk-float-right">
+<a href="../parentseven/"  target="_blank" class="cn-press-button"><span
+                                            >Click Here</span></a>
+</div>
+        </div>
+  
+    </div>
+</div>
+</div>
+<!-- <div class="uk-width-1-2@m">
+<div class="uk-card uk-card-default uk-animation-toggle cn-card uk-animation-slide-right" tabindex="2">
+        <div class="uk-card-header">
+        <div class="uk-grid-small uk-flex-middle" uk-grid>
+            <div class="uk-width-expand"><h2 class="uk-card-title uk-margin-remove-bottom">FOR ODD TERM 2024</h2></div>
+        </div>
+        </div>
+  <div class="uk-card-footer uk-text-right">
+  <a href="../parentsodd/"  target="_blank" class="cn-press-button"><span
+                                            >Click Here</span></a>
+    </div>
+</div>
+  </div>
+
+
+    </div>
+  </div>
+  </div>
+      </div>
+      
+        <footer>
+          <div class="uk-clearfix cn-footer-text">
+            <div class="uk-float-left">
+              <p class="uk-text-left">
+                Copyright Â© Powered By <a href="http://www.contineo.in/" target="_blanks">Contineo</a>
+              </p>
+            </div>
+            <div class="uk-float-right">
+              <p class="uk-text-right terms"><a href="#!">Terms of Service</a> | <a href="#!">Privacy Policy</a></p>
+            </div>
+          </div>
+        </footer>
+    </div> -->
+    </div>
+        <!-- JavaScript Libraries -->
+        <!-- <script src="files/lib/jquery/jquery.min.js"></script>
+        <script src="files/lib/jquery/jquery-migrate.min.js"></script>
+        <script src="files/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+        <script src="files/lib/easing/easing.min.js"></script>
+        <script src="files/lib/superfish/hoverIntent.js"></script>
+        <script src="files/lib/superfish/superfish.min.js"></script>
+        <script src="files/lib/wow/wow.min.js"></script>
+        <script src="files/lib/owlcarousel/owl.carousel.min.js"></script>
+        <script src="files/lib/magnific-popup/magnific-popup.min.js"></script>
+        <script src="files/lib/sticky/sticky.js"></script> -->
+
+        <!-- Contact Form JavaScript File -->
+        <!-- <script src="contactform/contactform.js"></script> -->
+
+        <!-- Template Main Javascript File -->
+        <!-- <script src="files/js/main.js"></script> -->
+
+</body>
+
+</html>
+
