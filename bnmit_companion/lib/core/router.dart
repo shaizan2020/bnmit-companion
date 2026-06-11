@@ -7,7 +7,6 @@ import 'package:bnmit_companion/screens/login_screen.dart';
 import 'package:bnmit_companion/screens/dashboard_screen.dart';
 import 'package:bnmit_companion/screens/attendance_screen.dart';
 import 'package:bnmit_companion/screens/marks_screen.dart';
-import 'package:bnmit_companion/screens/timetable_screen.dart';
 import 'package:bnmit_companion/screens/settings_screen.dart';
 import 'package:bnmit_companion/screens/shell_screen.dart';
 import 'package:bnmit_companion/screens/exam_history_screen.dart';
@@ -65,15 +64,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/marks',
             pageBuilder: (context, state) => CustomTransitionPage(
               child: const MarksScreen(),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-            ),
-          ),
-          GoRoute(
-            path: '/timetable',
-            pageBuilder: (context, state) => CustomTransitionPage(
-              child: const TimetableScreen(),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 return FadeTransition(opacity: animation, child: child);
               },

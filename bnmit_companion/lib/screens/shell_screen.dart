@@ -10,8 +10,7 @@ class ShellScreen extends StatelessWidget {
     if (location.startsWith('/dashboard')) return 0;
     if (location.startsWith('/attendance')) return 1;
     if (location.startsWith('/marks')) return 2;
-    if (location.startsWith('/timetable')) return 3;
-    if (location.startsWith('/settings')) return 4;
+    if (location.startsWith('/settings')) return 3;
     return 0;
   }
 
@@ -32,8 +31,6 @@ class ShellScreen extends StatelessWidget {
             case 2:
               context.go('/marks');
             case 3:
-              context.go('/timetable');
-            case 4:
               context.go('/settings');
           }
         },
@@ -52,11 +49,6 @@ class ShellScreen extends StatelessWidget {
             icon: Icon(Icons.assessment_outlined),
             selectedIcon: Icon(Icons.assessment),
             label: 'Marks',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today),
-            label: 'Timetable',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

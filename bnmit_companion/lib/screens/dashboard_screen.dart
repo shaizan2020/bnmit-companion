@@ -145,14 +145,6 @@ class DashboardScreen extends ConsumerWidget {
                       const SizedBox(width: 12),
                       _buildQuickAction(
                         context,
-                        icon: Icons.calendar_today,
-                        label: 'Timetable',
-                        color: const Color(0xFF4CAF50),
-                        onTap: () => context.go('/timetable'),
-                      ),
-                      const SizedBox(width: 12),
-                      _buildQuickAction(
-                        context,
                         icon: Icons.history_edu_rounded,
                         label: 'Exam History',
                         color: const Color(0xFF9C27B0),
