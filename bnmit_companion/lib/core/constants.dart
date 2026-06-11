@@ -28,6 +28,10 @@ class AppConstants {
   static const String cieParams =
       'option=com_studentdashboard&controller=studentdashboard&task=ciedetails';
 
+  // Exam History / Previous Marks Card
+  static const String examHistoryParams =
+      'option=com_studentdashboard&controller=studentdashboard&task=examhistory';
+
   // Timetable
   static const String timetableParams =
       'option=com_studentdashboard&controller=studentdashboard&task=timetable';
