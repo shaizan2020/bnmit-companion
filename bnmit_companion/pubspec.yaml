@@ -36,8 +36,6 @@ dependencies:
   # Notifications
   flutter_local_notifications: ^17.2.3
 
-  # Home Widget
-  home_widget: ^0.6.0
 
   # Utilities
   intl: ^0.19.0
