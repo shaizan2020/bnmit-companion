@@ -1,215 +1,223 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as html_dom;
 import 'package:bnmit_companion/models/exam_result.dart';
 import 'package:bnmit_companion/services/auth_service.dart';
-import 'package:bnmit_companion/core/constants.dart';
 
 class ExamHistoryService {
   final AuthService _authService;
 
   ExamHistoryService(this._authService);
 
-  /// Fetch list of available exam history semesters/sessions
-  Future<List<Map<String, String>>> fetchExamSessions() async {
+  /// Correct endpoint: option=com_history&task=getResult&usn=<USN>
+  Future<ExamHistoryData> fetchHistory(String usn) async {
     final html = await _authService.fetchPage(
-      'index.php?${AppConstants.examHistoryParams}',
+      'index.php?option=com_history&task=getResult&usn=$usn',
     );
-    return _parseExamSessions(html);
+    return _parseHistory(html, usn);
   }
 
-  /// Fetch exam result for a specific semester
-  Future<ExamResult> fetchExamResult(String semId) async {
-    final html = await _authService.fetchPage(
-      'index.php?${AppConstants.examHistoryParams}&semId=$semId',
-    );
-    return _parseExamResult(html, semId);
+  /// Download the marks card file from the portal.
+  /// Returns raw bytes of the file (PDF or image).
+  Future<Uint8List> downloadMarksCard(String semId, String usn) async {
+    // Try direct PDF download link format used by Contineo
+    final possibleUrls = [
+      'index.php?option=com_history&task=downloadResult&semId=$semId&usn=$usn',
+      'index.php?option=com_history&task=markscard&semId=$semId&usn=$usn',
+      'index.php?option=com_history&task=download&semId=$semId&usn=$usn',
+      'index.php?option=com_history&task=printResult&semId=$semId&usn=$usn',
+    ];
+
+    for (final url in possibleUrls) {
+      try {
+        final bytes = await _authService.fetchBytes(url);
+        if (bytes.isNotEmpty && bytes.length > 500) {
+          return bytes;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    throw Exception('Could not download marks card. The portal may not support direct download.');
   }
 
-  List<Map<String, String>> _parseExamSessions(String html) {
+  ExamHistoryData _parseHistory(String html, String usn) {
     final doc = html_parser.parse(html);
-    final sessions = <Map<String, String>>[];
+    final semesters = <SemesterResult>[];
+    String? downloadBaseUrl;
 
-    // Look for semester selection dropdown or links
-    final selectEl = doc.querySelector('select[name="semId"]') ??
-        doc.querySelector('select');
-    if (selectEl != null) {
-      final options = selectEl.querySelectorAll('option');
-      for (final opt in options) {
-        final value = opt.attributes['value'] ?? '';
-        final label = opt.text.trim();
-        if (value.isNotEmpty && label.isNotEmpty) {
-          sessions.add({'semId': value, 'label': label});
-        }
-      }
-    }
+    // Look for semester sections / cards
+    // The portal typically shows a list of semester results
+    // Each may have a "Download" or "View" button
 
-    // Alternatively look for tab or list items
-    if (sessions.isEmpty) {
-      final tabs = doc.querySelectorAll('ul[uk-tab] li a, .uk-tab li a');
-      for (final tab in tabs) {
-        final href = tab.attributes['href'] ?? '';
-        final onclick = tab.attributes['onclick'] ?? '';
-        final label = tab.text.trim();
-        final semId = _extractParam(href.isNotEmpty ? href : onclick, 'semId');
-        if (semId.isNotEmpty) {
-          sessions.add({'semId': semId, 'label': label});
-        }
-      }
-    }
-
-    // Look for table rows that might be semester links
-    if (sessions.isEmpty) {
-      final links = doc.querySelectorAll('a[href*="semId"]');
-      for (final link in links) {
-        final href = link.attributes['href'] ?? '';
-        final semId = _extractParam(href, 'semId');
-        final label = link.text.trim();
-        if (semId.isNotEmpty && label.isNotEmpty) {
-          sessions.add({'semId': semId, 'label': label});
-        }
-      }
-    }
-
-    return sessions;
-  }
-
-  ExamResult _parseExamResult(String html, String semId) {
-    final doc = html_parser.parse(html);
-    final subjects = <SubjectResult>[];
-
-    String semester = 'Semester $semId';
-    String examType = 'Examination';
-
-    // Try to parse a heading for semester/exam name
-    final heading = doc.querySelector('h1, h2, h3, .cn-head, .page-title');
-    if (heading != null) {
-      final text = heading.text.trim();
-      if (text.isNotEmpty) {
-        semester = text;
-      }
-    }
-
-    // Parse results table — Contineo uses various table structures
+    // Strategy 1: Look for table rows with semester data
     final tables = doc.querySelectorAll('table');
-    html_dom.Element? resultsTable;
-
     for (final table in tables) {
-      final headers = table.querySelectorAll('th');
-      final headerTexts = headers.map((h) => h.text.trim().toLowerCase()).toList();
-      // Identify the marks table by looking for subject/marks related headers
-      if (headerTexts.any((h) =>
-          h.contains('subject') ||
-          h.contains('code') ||
-          h.contains('marks') ||
-          h.contains('grade') ||
-          h.contains('credit'))) {
-        resultsTable = table;
-        break;
-      }
-    }
-
-    if (resultsTable != null) {
-      final headerCells = resultsTable.querySelectorAll('thead th');
-      final headers = headerCells.map((h) => h.text.trim().toLowerCase()).toList();
-
-      // Find column indices
-      int codeIdx = _findColumnIndex(headers, ['code', 'sub code', 'course code']);
-      int nameIdx = _findColumnIndex(headers, ['subject', 'name', 'course name', 'title']);
-      int marksIdx = _findColumnIndex(headers, ['marks', 'obtained', 'total']);
-      int maxIdx = _findColumnIndex(headers, ['max', 'maximum', 'out of']);
-      int gradeIdx = _findColumnIndex(headers, ['grade']);
-      int creditIdx = _findColumnIndex(headers, ['credit', 'cr']);
-      int sgpaIdx = _findColumnIndex(headers, ['sgpa', 'gpa', 'grade point']);
-      int resultIdx = _findColumnIndex(headers, ['result', 'status', 'pass', 'fail']);
-
-      final rows = resultsTable.querySelectorAll('tbody tr');
+      final rows = table.querySelectorAll('tr');
       for (final row in rows) {
-        final cells = row.querySelectorAll('td');
-        if (cells.isEmpty) continue;
+        final cells = row.querySelectorAll('td, th');
+        if (cells.length >= 2) {
+          final rowText = row.text.trim().toLowerCase();
+          // Skip header rows
+          if (rowText.contains('semester') && cells.length <= 3) continue;
 
-        String getCell(int idx) =>
-            idx >= 0 && idx < cells.length ? cells[idx].text.trim() : '';
-
-        final code = getCell(codeIdx);
-        final name = getCell(nameIdx);
-        if (code.isEmpty && name.isEmpty) continue;
-
-        final marksText = getCell(marksIdx);
-        final maxText = getCell(maxIdx);
-        final gradeText = getCell(gradeIdx);
-        final creditText = getCell(creditIdx);
-        final sgpaText = getCell(sgpaIdx);
-        final resultText = getCell(resultIdx).toLowerCase();
-
-        final marks = double.tryParse(marksText);
-        final maxMarks = double.tryParse(maxText);
-        final credits = int.tryParse(creditText);
-        final sgpa = double.tryParse(sgpaText);
-
-        // Determine pass/fail
-        bool isPassed = true;
-        if (resultText.isNotEmpty) {
-          isPassed = resultText.contains('pass') ||
-              resultText.contains('p') ||
-              resultText == 'p';
-          if (resultText.contains('fail') || resultText.contains('f') || resultText == 'f') {
-            isPassed = false;
+          // Check if this row contains semester info
+          final semMatch = RegExp(r'sem[a-z\s]*(\d+)', caseSensitive: false)
+              .firstMatch(row.text);
+          if (semMatch != null || row.text.contains('20') || _hasDownloadLink(row)) {
+            final downloadLink = _findDownloadLink(row);
+            final semId = downloadLink != null 
+                ? _extractParam(downloadLink, 'semId') 
+                : semMatch?.group(1) ?? '';
+            
+            if (downloadLink != null || semId.isNotEmpty) {
+              final label = _extractSemLabel(cells);
+              if (label.isNotEmpty) {
+                semesters.add(SemesterResult(
+                  label: label,
+                  semId: semId,
+                  downloadUrl: downloadLink,
+                ));
+              }
+            }
           }
-        } else if (gradeText.isNotEmpty) {
-          isPassed = gradeText != 'F' && gradeText != 'AB' && gradeText != 'X';
-        } else if (marks != null && maxMarks != null && maxMarks > 0) {
-          isPassed = (marks / maxMarks) >= 0.35; // 35% is typical pass criterion
         }
-
-        subjects.add(SubjectResult(
-          subjectCode: code.isNotEmpty ? code : 'N/A',
-          subjectName: name.isNotEmpty ? name : 'Subject',
-          grade: gradeText.isNotEmpty ? gradeText : null,
-          marks: marks,
-          maxMarks: maxMarks,
-          credits: credits,
-          sgpa: sgpa,
-          isPassed: isPassed,
-        ));
       }
     }
 
-    // If no structured table found, try looking for any result data
-    if (subjects.isEmpty) {
-      // Try to look for individual result cards or divs
-      final cards = doc.querySelectorAll('.cn-result-card, .result-item, .md-card');
-      for (final card in cards) {
-        final codeEl = card.querySelector('.subject-code, [class*="code"]');
-        final nameEl = card.querySelector('.subject-name, [class*="name"]');
-        if (codeEl != null || nameEl != null) {
-          subjects.add(SubjectResult(
-            subjectCode: codeEl?.text.trim() ?? 'N/A',
-            subjectName: nameEl?.text.trim() ?? 'Subject',
-            isPassed: true,
+    // Strategy 2: Look for list items or cards with download buttons
+    if (semesters.isEmpty) {
+      final downloadLinks = doc.querySelectorAll(
+          'a[href*="download"], a[href*="Download"], a[href*="markscard"], '
+          'a[href*="result"], button[onclick*="download"]');
+      
+      for (final link in downloadLinks) {
+        final href = link.attributes['href'] ?? 
+                     link.attributes['onclick'] ?? '';
+        final semId = _extractParam(href, 'semId');
+        final label = link.text.trim().isEmpty
+            ? (_closestText(link, 'tr') ?? _closestText(link, 'div') ?? '')
+            : link.text.trim();
+        
+        if (href.isNotEmpty) {
+          semesters.add(SemesterResult(
+            label: _cleanLabel(label),
+            semId: semId,
+            downloadUrl: href,
           ));
         }
       }
     }
 
-    return ExamResult(
-      semester: semester,
-      examType: examType,
-      subjects: subjects,
+    // Strategy 3: Look for any "Exam History" section divs
+    if (semesters.isEmpty) {
+      final cards = doc.querySelectorAll(
+          '.cn-result, .result-card, .md-card, [class*="result"], [class*="history"]');
+      for (final card in cards) {
+        final link = _findDownloadLink(card);
+        final semId = link != null ? _extractParam(link, 'semId') : '';
+        final label = card.querySelector('h3, h4, .title, strong')?.text.trim() 
+            ?? card.text.trim().split('\n').first;
+        if (label.isNotEmpty) {
+          semesters.add(SemesterResult(
+            label: _cleanLabel(label),
+            semId: semId,
+            downloadUrl: link,
+          ));
+        }
+      }
+    }
+
+    // Strategy 4: Look for any anchor with semId param
+    if (semesters.isEmpty) {
+      final allLinks = doc.querySelectorAll('a[href*="semId"]');
+      for (final link in allLinks) {
+        final href = link.attributes['href'] ?? '';
+        final semId = _extractParam(href, 'semId');
+        final label = link.text.trim();
+        if (semId.isNotEmpty && label.isNotEmpty) {
+          semesters.add(SemesterResult(
+            label: label,
+            semId: semId,
+            downloadUrl: href,
+          ));
+        }
+      }
+    }
+
+    return ExamHistoryData(
+      usn: usn,
+      semesters: semesters,
+      rawHtml: html,
     );
   }
 
-  int _findColumnIndex(List<String> headers, List<String> keywords) {
-    for (int i = 0; i < headers.length; i++) {
-      for (final kw in keywords) {
-        if (headers[i].contains(kw)) return i;
+  bool _hasDownloadLink(html_dom.Element el) {
+    return el.querySelector('a[href*="download"], a[href*="Download"], a[href*="semId"]') != null;
+  }
+
+  String? _findDownloadLink(html_dom.Element el) {
+    final link = el.querySelector(
+        'a[href*="download"], a[href*="Download"], '
+        'a[href*="markscard"], a[href*="semId"], a[href*="result"]');
+    return link?.attributes['href'];
+  }
+
+  /// Walk up the DOM tree to find an ancestor matching [tag] and return its text
+  String? _closestText(html_dom.Element el, String tag) {
+    html_dom.Node? node = el.parent;
+    while (node != null) {
+      if (node is html_dom.Element && node.localName == tag) {
+        return node.text.trim();
+      }
+      node = node.parent;
+    }
+    return null;
+  }
+
+  String _extractSemLabel(List<html_dom.Element> cells) {
+    for (final cell in cells) {
+      final text = cell.text.trim();
+      if (text.isNotEmpty && !text.toLowerCase().contains('action') && 
+          !text.toLowerCase().contains('download')) {
+        return text;
       }
     }
-    return -1;
+    return '';
+  }
+
+  String _cleanLabel(String raw) {
+    return raw.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   String _extractParam(String url, String param) {
-    final regex = RegExp('$param=([^&\'"]+)');
+    final regex = RegExp('$param=([^&\'"\\s]+)');
     final match = regex.firstMatch(url);
     return match?.group(1) ?? '';
   }
+}
+
+class ExamHistoryData {
+  final String usn;
+  final List<SemesterResult> semesters;
+  final String rawHtml;
+
+  ExamHistoryData({
+    required this.usn,
+    required this.semesters,
+    required this.rawHtml,
+  });
+}
+
+class SemesterResult {
+  final String label;
+  final String semId;
+  final String? downloadUrl;
+
+  SemesterResult({
+    required this.label,
+    required this.semId,
+    this.downloadUrl,
+  });
 }

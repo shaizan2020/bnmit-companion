@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
@@ -283,6 +284,24 @@ class AuthService {
         throw NoInternetException();
       }
       throw NetworkException('Failed to fetch page: ${e.message}');
+    }
+  }
+
+  /// Fetch raw bytes from a portal URL (for PDF/file downloads)
+  Future<Uint8List> fetchBytes(String url) async {
+    if (url.startsWith('/')) url = url.substring(1);
+    try {
+      final response = await _dio.get(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final data = response.data;
+      if (data is List<int>) return Uint8List.fromList(data);
+      if (data is Uint8List) return data;
+      return Uint8List(0);
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError) throw NoInternetException();
+      throw NetworkException('Failed to download file: ${e.message}');
     }
   }
 
