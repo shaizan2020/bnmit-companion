@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -287,19 +288,44 @@ class AuthService {
     }
   }
 
-  /// Fetch raw bytes from a portal URL (for PDF/file downloads)
+  /// Fetch raw bytes from a portal URL (for PDF/file downloads).
+  /// Handles both relative paths (resolved against baseUrl) and absolute URLs.
   Future<Uint8List> fetchBytes(String url) async {
+    // Strip leading slash for relative paths
     if (url.startsWith('/')) url = url.substring(1);
+
+    print('FETCH BYTES: url=$url');
+
     try {
-      final response = await _dio.get(
-        url,
-        options: Options(responseType: ResponseType.bytes),
-      );
+      // For absolute URLs, override the base URL so Dio doesn't prepend it
+      final options = url.startsWith('http')
+          ? Options(
+              responseType: ResponseType.bytes,
+              extra: {'baseUrl': ''},
+            )
+          : Options(responseType: ResponseType.bytes);
+
+      final response = await _dio.get(url, options: options);
+      print('FETCH BYTES: status=${response.statusCode} data type=${response.data.runtimeType}');
+
       final data = response.data;
-      if (data is List<int>) return Uint8List.fromList(data);
-      if (data is Uint8List) return data;
+      if (data is List<int>) {
+        final bytes = Uint8List.fromList(data);
+        print('FETCH BYTES: returning ${bytes.length} bytes (from List<int>)');
+        return bytes;
+      }
+      if (data is Uint8List) {
+        print('FETCH BYTES: returning ${data.length} bytes (Uint8List)');
+        return data;
+      }
+      // If we got HTML text instead of binary, it means redirect to login page
+      if (data is String && data.contains('login-form')) {
+        throw Exception('Session expired — got login page instead of file.');
+      }
+      print('FETCH BYTES: unexpected data type, returning empty');
       return Uint8List(0);
     } on DioException catch (e) {
+      print('FETCH BYTES ERROR: ${e.type} ${e.message}');
       if (e.type == DioExceptionType.connectionError) throw NoInternetException();
       throw NetworkException('Failed to download file: ${e.message}');
     }
@@ -344,6 +370,8 @@ class ManualRedirectInterceptor extends Interceptor {
   }) async {
     if (hops > 8) throw Exception('Too many redirects in _fetchWithRawHttp');
 
+    print('RAW HTTP starting request for $url (hops=$hops)');
+
     final uri = Uri.parse(url);
 
     // Determine the base portal URI (e.g. https://host/parentseven/)
@@ -361,9 +389,12 @@ class ManualRedirectInterceptor extends Interceptor {
     final cookieHeader = allCookieMap.values.map((c) => '${c.name}=${c.value}').join('; ');
 
     final httpClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 15)
       ..badCertificateCallback = (_, __, ___) => true;
 
-    final request = await httpClient.getUrl(uri);
+    print('RAW HTTP client initialized, calling getUrl...');
+    final request = await httpClient.getUrl(uri).timeout(const Duration(seconds: 15));
+    print('RAW HTTP getUrl returned request, configuring headers...');
 
     // CRITICAL: disable auto-redirects — dart:io crashes on the
     // Content-Length mismatch when following redirects automatically.
@@ -386,9 +417,14 @@ class ManualRedirectInterceptor extends Interceptor {
     // Don't advertise gzip support so dart:io won't try to decompress
     request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
 
+    print('RAW HTTP calling request.close()...');
     HttpClientResponse response;
     try {
-      response = await request.close();
+      response = await request.close().timeout(const Duration(seconds: 15));
+    } on TimeoutException catch (e) {
+      print('RAW HTTP request.close() timeout (URL=$url): $e');
+      httpClient.close(force: true);
+      rethrow;
     } on HttpException catch (e) {
       // dart:io eagerly buffers the response body during keep-alive handling.
       // If the server sends Content-Length > 0 with an empty body (Joomla quirk),
@@ -399,6 +435,7 @@ class ManualRedirectInterceptor extends Interceptor {
       httpClient.close(force: true);
       return '<html><!-- ${url} --></html>';
     } catch (e) {
+      print('RAW HTTP close() unexpected error: $e');
       httpClient.close(force: true);
       rethrow;
     }
@@ -422,7 +459,7 @@ class ManualRedirectInterceptor extends Interceptor {
     // and follow the Location header ourselves
     if (response.statusCode >= 300 && response.statusCode < 400) {
       try {
-        await response.drain<void>();
+        await response.drain<void>().timeout(const Duration(seconds: 5));
       } catch (_) {
         // Joomla sends Content-Length > 0 on redirect bodies — safe to ignore
       }
@@ -443,9 +480,14 @@ class ManualRedirectInterceptor extends Interceptor {
 
     // 200 — read the actual body
     final List<int> bytes = [];
+    print('RAW HTTP starting response body read...');
     try {
-      await response.forEach((chunk) => bytes.addAll(chunk));
-    } catch (_) {
+      await response
+          .timeout(const Duration(seconds: 15))
+          .forEach((chunk) => bytes.addAll(chunk));
+      print('RAW HTTP response body read complete: ${bytes.length} bytes');
+    } catch (e) {
+      print('RAW HTTP response body read error (continuing with ${bytes.length} bytes): $e');
       // Ignore any trailing content-length mismatch on the final page too
     }
     httpClient.close(force: true);

@@ -1,13 +1,7 @@
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:open_file/open_file.dart';
 import 'package:bnmit_companion/providers/exam_history_provider.dart';
-import 'package:bnmit_companion/providers/auth_provider.dart';
 import 'package:bnmit_companion/services/exam_history_service.dart';
 
 class ExamHistoryScreen extends ConsumerWidget {
@@ -16,14 +10,13 @@ class ExamHistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historyAsync = ref.watch(examHistoryProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // Header
+          // ── Header ────────────────────────────────────────────────────────
           SliverAppBar(
-            expandedHeight: 120,
+            expandedHeight: 110,
             floating: false,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
@@ -66,7 +59,7 @@ class ExamHistoryScreen extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              'Download previous semester marks cards',
+                              'Select a semester to view results',
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
@@ -82,118 +75,17 @@ class ExamHistoryScreen extends ConsumerWidget {
             ),
           ),
 
-          // Content
+          // ── Content ───────────────────────────────────────────────────────
           SliverPadding(
             padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 historyAsync.when(
-                  data: (data) {
-                    if (data.semesters.isEmpty) {
-                      return _buildEmptyState(context, data);
-                    }
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Info banner
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer.withAlpha(80),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: colorScheme.primary.withAlpha(40),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline,
-                                  color: colorScheme.primary, size: 18),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Tap Download to save a marks card to your device.',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ).animate().fadeIn(duration: 300.ms),
-                        const SizedBox(height: 16),
-                        Text(
-                          '${data.semesters.length} semester${data.semesters.length == 1 ? '' : 's'} found',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: colorScheme.onSurface.withAlpha(153),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ...data.semesters.asMap().entries.map((entry) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _SemesterCard(
-                              semester: entry.value,
-                              usn: data.usn,
-                              index: entry.key,
-                            ).animate(delay: (entry.key * 80).ms)
-                              .fadeIn()
-                              .slideY(begin: 0.05),
-                          );
-                        }),
-                      ],
-                    );
-                  },
+                  data: (data) => _ExamHistoryBody(data: data),
                   loading: () => _buildLoading(context),
                   error: (e, _) => _buildError(context, e.toString(), ref),
                 ),
               ]),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context, ExamHistoryData data) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.history_edu_outlined,
-              size: 64, color: colorScheme.onSurface.withAlpha(60)),
-          const SizedBox(height: 20),
-          Text(
-            'No Exam History Found',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Previous semester results will appear here once published on the Contineo portal.',
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.onSurface.withAlpha(128),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'USN: ${data.usn}',
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurface.withAlpha(100),
             ),
           ),
         ],
@@ -208,7 +100,7 @@ class ExamHistoryScreen extends ConsumerWidget {
         (i) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Container(
-            height: 100,
+            height: 80,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(16),
@@ -248,331 +140,625 @@ class ExamHistoryScreen extends ConsumerWidget {
   }
 }
 
-// ─── Semester Card Widget ───────────────────────────────────────────────────
+// ─── Body with semester selector + grade card display ─────────────────────────
 
-class _SemesterCard extends ConsumerStatefulWidget {
-  final SemesterResult semester;
-  final String usn;
-  final int index;
+class _ExamHistoryBody extends ConsumerWidget {
+  final ExamHistoryData data;
 
-  const _SemesterCard({
-    required this.semester,
-    required this.usn,
-    required this.index,
-  });
+  const _ExamHistoryBody({required this.data});
 
   @override
-  ConsumerState<_SemesterCard> createState() => _SemesterCardState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final selectedIndex = ref.watch(selectedSemesterIndexProvider);
+    final gradeCard = ref.watch(gradeCardProvider);
+
+    if (data.semesters.isEmpty) return _buildEmpty(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Lateral banner ────────────────────────────────────────────────
+        if (data.isLateral)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: colorScheme.secondaryContainer.withAlpha(100),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colorScheme.secondary.withAlpha(60)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.school_outlined,
+                    color: colorScheme.secondary, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Lateral entry — semesters from Sem 3',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.secondary,
+                      fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ).animate().fadeIn(duration: 300.ms),
+
+        // ── Overall summary pill (CGPA + total credits) ───────────────────
+        if (data.overallCgpa.isNotEmpty || data.creditsEarnedSoFar.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6750A4), Color(0xFF9C27B0)],
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                if (data.overallCgpa.isNotEmpty)
+                  _overallStat('Overall CGPA', data.overallCgpa),
+                if (data.creditsEarnedSoFar.isNotEmpty)
+                  _overallStat('Credits Earned', data.creditsEarnedSoFar),
+                if (data.creditsToBeEarned.isNotEmpty)
+                  _overallStat('Credits Left', data.creditsToBeEarned),
+              ],
+            ),
+          ).animate().fadeIn(duration: 350.ms),
+
+        // ── Semester dropdown ─────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: const Color(0xFF6750A4).withAlpha(60),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(8),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: selectedIndex,
+              isExpanded: true,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                  color: Color(0xFF6750A4)),
+              hint: const Text(
+                'Select a semester',
+                style: TextStyle(fontSize: 15),
+              ),
+              items: data.semesters.asMap().entries.map((entry) {
+                return DropdownMenuItem<int>(
+                  value: entry.key,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6750A4).withAlpha(20),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${entry.key + (data.isLateral ? 3 : 1)}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF6750A4),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          entry.value.label,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (idx) {
+                ref.read(selectedSemesterIndexProvider.notifier).state = idx;
+              },
+            ),
+          ),
+        ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.03),
+
+        const SizedBox(height: 20),
+
+        // ── Grade card or prompt ──────────────────────────────────────────
+        if (selectedIndex == null)
+          _buildSelectPrompt(context)
+        else if (gradeCard == null)
+          _buildNoDetails(context)
+        else
+          _GradeCardView(details: gradeCard)
+              .animate()
+              .fadeIn(duration: 400.ms)
+              .slideY(begin: 0.05),
+      ],
+    );
+  }
+
+  Widget _overallStat(String label, String value) {
+    return Column(
+      children: [
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800)),
+        Text(label,
+            style: const TextStyle(color: Colors.white70, fontSize: 10)),
+      ],
+    );
+  }
+
+  Widget _buildEmpty(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.history_edu_outlined,
+              size: 64, color: colorScheme.onSurface.withAlpha(60)),
+          const SizedBox(height: 20),
+          Text('No records yet',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface)),
+          const SizedBox(height: 8),
+          Text(
+            'Contineo hasn\'t published any semester results yet.',
+            style: TextStyle(
+                fontSize: 13, color: colorScheme.onSurface.withAlpha(128)),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectPrompt(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: const Color(0xFF6750A4).withAlpha(30), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.touch_app_rounded,
+              size: 48, color: const Color(0xFF6750A4).withAlpha(120)),
+          const SizedBox(height: 16),
+          Text(
+            'Select a semester above',
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Your subject-wise results will appear instantly',
+            style: TextStyle(
+                fontSize: 13, color: colorScheme.onSurface.withAlpha(120)),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 300.ms);
+  }
+
+  Widget _buildNoDetails(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.info_outline,
+              size: 40, color: colorScheme.onSurface.withAlpha(80)),
+          const SizedBox(height: 12),
+          Text('No details available for this semester.',
+              style:
+                  TextStyle(fontSize: 14, color: colorScheme.onSurface),
+              textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
 }
 
-class _SemesterCardState extends ConsumerState<_SemesterCard> {
-  bool _isDownloading = false;
-  String? _savedPath;
+// ─── Grade Card Detail View ────────────────────────────────────────────────────
+
+class _GradeCardView extends StatelessWidget {
+  final GradeCardDetails details;
+
+  const _GradeCardView({required this.details});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const accent = Color(0xFF6750A4);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Summary card ──────────────────────────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF6750A4), Color(0xFF9C27B0)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withAlpha(60),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                details.semLabel,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              if (details.examName.isNotEmpty &&
+                  details.examName != details.semLabel) ...[
+                const SizedBox(height: 2),
+                Text(
+                  details.examName,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700),
+                ),
+              ],
+              const SizedBox(height: 14),
+              // SGPA / CGPA / Credits chips
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                children: [
+                  if (details.sgpa.isNotEmpty) _statChip('SGPA', details.sgpa),
+                  if (details.cgpa.isNotEmpty) _statChip('CGPA', details.cgpa),
+                  if (details.creditsRegistered.isNotEmpty)
+                    _statChip('Cr. Reg', details.creditsRegistered),
+                  if (details.creditsEarned.isNotEmpty)
+                    _statChip('Cr. Earned', details.creditsEarned),
+                  if (details.subjects.isNotEmpty)
+                    _statChip('Subjects', '${details.subjects.length}'),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // ── Pass/fail counts ──────────────────────────────────────────────
+        if (details.subjects.isNotEmpty) ...[
+          Row(
+            children: [
+              Expanded(
+                child: _countCard(context,
+                    icon: Icons.check_circle_rounded,
+                    label: 'Passed',
+                    count:
+                        '${details.subjects.where((s) => s.isPassed).length}',
+                    color: Colors.green),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _countCard(context,
+                    icon: Icons.cancel_rounded,
+                    label: 'Failed',
+                    count:
+                        '${details.subjects.where((s) => !s.isPassed).length}',
+                    color: Colors.red),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _countCard(context,
+                    icon: Icons.book_rounded,
+                    label: 'Total',
+                    count: '${details.subjects.length}',
+                    color: accent),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // ── Subjects header ───────────────────────────────────────────
+          Text(
+            'Subject Results',
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface),
+          ),
+          const SizedBox(height: 10),
+
+          // ── Subject cards ─────────────────────────────────────────────
+          ...details.subjects.asMap().entries.map((entry) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _SubjectCard(subject: entry.value, index: entry.key)
+                  .animate(delay: (entry.key * 55).ms)
+                  .fadeIn()
+                  .slideY(begin: 0.04),
+            );
+          }),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.table_chart_outlined,
+                    size: 40, color: colorScheme.onSurface.withAlpha(80)),
+                const SizedBox(height: 10),
+                Text(
+                  'No subject data available for this semester.',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurface.withAlpha(160)),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _statChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(25),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withAlpha(50)),
+      ),
+      child: Column(
+        children: [
+          Text(value,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800)),
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+
+  Widget _countCard(BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String count,
+    required Color color,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: color.withAlpha(15),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withAlpha(40)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 4),
+          Text(count,
+              style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11, color: colorScheme.onSurface.withAlpha(140))),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Subject Card ──────────────────────────────────────────────────────────────
+
+class _SubjectCard extends StatelessWidget {
+  final SubjectRow subject;
+  final int index;
+
+  const _SubjectCard({required this.subject, required this.index});
 
   static const List<Color> _colors = [
     Color(0xFF6750A4),
     Color(0xFF1565C0),
     Color(0xFF2E7D32),
-    Color(0xFFBF360C),
     Color(0xFF00838F),
     Color(0xFF6A1B9A),
-    Color(0xFF558B2F),
     Color(0xFF4527A0),
+    Color(0xFF558B2F),
+    Color(0xFFBF360C),
   ];
 
-  Color get _accentColor => _colors[widget.index % _colors.length];
+  Color get _accent => _colors[index % _colors.length];
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final color = _accentColor;
+    final color = subject.isPassed ? _accent : Colors.red.shade700;
+    final passColor = subject.isPassed ? Colors.green : Colors.red;
 
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withAlpha(40), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(6),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withAlpha(5),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: color.withAlpha(15),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Index bubble
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withAlpha(20),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  '${index + 1}',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: color),
+                ),
+              ),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: color.withAlpha(25),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Icon(Icons.school_rounded, color: color, size: 20),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.semester.label.isNotEmpty
-                            ? widget.semester.label
-                            : 'Semester ${widget.index + 1}',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      if (widget.usn.isNotEmpty)
-                        Text(
-                          widget.usn,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.onSurface.withAlpha(128),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                // Marks Card chip
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withAlpha(20),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: color.withAlpha(60)),
-                  ),
-                  child: Text(
-                    'Marks Card',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Actions
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // Download button
-                Expanded(
-                  child: _isDownloading
-                      ? Container(
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: color.withAlpha(15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: color,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text('Downloading...',
-                                    style: TextStyle(fontSize: 13, color: color)),
-                              ],
-                            ),
-                          ),
-                        )
-                      : _savedPath != null
-                          ? _buildOpenButton(color)
-                          : _buildDownloadButton(color),
-                ),
-                if (_savedPath != null) ...[
-                  const SizedBox(width: 8),
-                  // Share button
-                  IconButton(
-                    onPressed: () => _share(),
-                    icon: const Icon(Icons.share_rounded),
-                    style: IconButton.styleFrom(
-                      backgroundColor: colorScheme.surfaceContainerHigh,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    tooltip: 'Share',
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          if (_savedPath != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Row(
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 14),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Saved: ${_savedPath!.split('/').last}',
-                      style: const TextStyle(fontSize: 11, color: Colors.green),
-                      overflow: TextOverflow.ellipsis,
+                  // Subject name
+                  Text(
+                    subject.name.isNotEmpty ? subject.name : subject.code,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface),
+                  ),
+                  if (subject.code.isNotEmpty && subject.name.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subject.code,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onSurface.withAlpha(140)),
                     ),
+                  ],
+                  const SizedBox(height: 8),
+                  // Stats chips
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (subject.gpa.isNotEmpty)
+                        _chip(context, 'GPA', subject.gpa, color),
+                      if (subject.grade.isNotEmpty)
+                        _chip(context, 'Grade', subject.grade, color),
+                      if (subject.creditsReg.isNotEmpty)
+                        _chip(context, 'Cr. Reg', subject.creditsReg, color),
+                      if (subject.creditsEarned.isNotEmpty)
+                        _chip(context, 'Cr. Earned', subject.creditsEarned,
+                            passColor),
+                    ],
                   ),
                 ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDownloadButton(Color color) {
-    return ElevatedButton.icon(
-      onPressed: _download,
-      icon: const Icon(Icons.download_rounded, size: 18),
-      label: const Text('Download Marks Card'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  Widget _buildOpenButton(Color color) {
-    return OutlinedButton.icon(
-      onPressed: _openFile,
-      icon: const Icon(Icons.open_in_new_rounded, size: 18),
-      label: const Text('Open Marks Card'),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: color,
-        side: BorderSide(color: color),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  Future<void> _download() async {
-    setState(() => _isDownloading = true);
-    try {
-      final service = ref.read(examHistoryServiceProvider);
-      final bytes = await service.downloadMarksCard(
-        widget.semester.semId,
-        widget.usn,
-      );
-
-      // Determine file extension from content
-      final ext = _detectExtension(bytes);
-      final safeName = (widget.semester.label.isNotEmpty
-              ? widget.semester.label
-              : 'sem_${widget.index + 1}')
-          .replaceAll(RegExp(r'[^\w\s-]'), '')
-          .replaceAll(RegExp(r'\s+'), '_')
-          .toLowerCase();
-
-      // Save to Downloads folder
-      final dir = await _getDownloadsDir();
-      final file = File('${dir.path}/bnmit_marks_$safeName.$ext');
-      await file.writeAsBytes(bytes);
-
-      if (mounted) {
-        setState(() => _savedPath = file.path);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Saved to Downloads: bnmit_marks_$safeName.$ext'),
-            backgroundColor: Colors.green,
-            action: SnackBarAction(
-              label: 'Open',
-              textColor: Colors.white,
-              onPressed: _openFile,
+            // Pass / Fail badge
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: passColor.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: passColor.withAlpha(80)),
+              ),
+              child: Text(
+                subject.isPassed ? 'PASS' : 'FAIL',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: passColor,
+                    letterSpacing: 0.5),
+              ),
             ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Download failed: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isDownloading = false);
-    }
-  }
-
-  Future<void> _openFile() async {
-    if (_savedPath == null) return;
-    final result = await OpenFile.open(_savedPath!);
-    if (result.type != ResultType.done && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open file: ${result.message}')),
-      );
-    }
-  }
-
-  Future<void> _share() async {
-    if (_savedPath == null) return;
-    await Share.shareXFiles(
-      [XFile(_savedPath!)],
-      subject: 'BNMIT Marks Card - ${widget.semester.label}',
+          ],
+        ),
+      ),
     );
   }
 
-  String _detectExtension(Uint8List bytes) {
-    // PDF magic: %PDF
-    if (bytes.length > 4 &&
-        bytes[0] == 0x25 && bytes[1] == 0x50 &&
-        bytes[2] == 0x44 && bytes[3] == 0x46) {
-      return 'pdf';
-    }
-    // PNG magic
-    if (bytes.length > 4 &&
-        bytes[0] == 0x89 && bytes[1] == 0x50 &&
-        bytes[2] == 0x4E && bytes[3] == 0x47) {
-      return 'png';
-    }
-    // JPEG magic
-    if (bytes.length > 2 && bytes[0] == 0xFF && bytes[1] == 0xD8) {
-      return 'jpg';
-    }
-    return 'pdf'; // Default to PDF
-  }
-
-  Future<Directory> _getDownloadsDir() async {
-    // Try /storage/emulated/0/Download first
-    final downloadDir = Directory('/storage/emulated/0/Download/BNMIT Companion');
-    if (await downloadDir.exists() || await downloadDir.create(recursive: true) != null) {
-      return downloadDir;
-    }
-    // Fallback to app documents directory
-    return getApplicationDocumentsDirectory();
+  Widget _chip(
+      BuildContext context, String label, String value, Color color) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withAlpha(12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withAlpha(40)),
+      ),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: TextStyle(
+                  fontSize: 11, color: colorScheme.onSurface.withAlpha(140)),
+            ),
+            TextSpan(
+              text: value,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

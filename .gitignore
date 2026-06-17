@@ -5,3 +5,19 @@ __pycache__/
 cookies.txt
 .gemini/
 *.log
+
+# Flutter build and cache
+bnmit_companion/.dart_tool/
+bnmit_companion/build/
+bnmit_companion/.flutter-plugins-dependencies
+bnmit_companion/android/
+bnmit_companion/ios/
+
+# HTML dumps and scratch files
+*.html
+*.txt
+*.py
+bnmit_companion/*.py
+bnmit_companion/*.html
+bnmit_companion/*.txt
+

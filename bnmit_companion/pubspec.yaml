@@ -1,7 +1,7 @@
 name: bnmit_companion
 description: BNMIT Companion - Your academic dashboard for Contineo portal
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
