@@ -10,6 +10,7 @@ import 'package:bnmit_companion/screens/marks_screen.dart';
 import 'package:bnmit_companion/screens/settings_screen.dart';
 import 'package:bnmit_companion/screens/shell_screen.dart';
 import 'package:bnmit_companion/screens/exam_history_screen.dart';
+import 'package:bnmit_companion/screens/eresults_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -82,6 +83,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/exam-history',
             pageBuilder: (context, state) => CustomTransitionPage(
               child: const ExamHistoryScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+            ),
+          ),
+          GoRoute(
+            path: '/eresults',
+            pageBuilder: (context, state) => CustomTransitionPage(
+              child: const EResultsScreen(),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 return FadeTransition(opacity: animation, child: child);
               },

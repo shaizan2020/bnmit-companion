@@ -45,6 +45,10 @@ class StorageService {
     };
   }
 
+  Future<String?> getDob() async {
+    return await _storage.read(key: AppConstants.keyDob);
+  }
+
   Future<bool> isLoggedIn() async {
     final value = await _storage.read(key: AppConstants.keyIsLoggedIn);
     return value == 'true';
